@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { NewFace } from './Face.jsx';
 import { BODY_IMG } from './bodies.js';
-import { EX } from './extras.js';
+import { EX, BREEZE_LAZY, POCKET_FULL_BREEZE } from './extras.js';
 import { PhotoIcon, iconKeyOf, CUSTOM_ICON_CHOICES } from './PhotoIcons.jsx';
 import { 
   Carrot, CakeSlice, Sparkles, BookOpen, PieChart, Compass, Plus, Trash2, Edit3, 
@@ -633,6 +633,8 @@ Object.keys(PERSONA_MORE).forEach(k => {
   p.feed = (n, c) => [...f0(n, c), ...m.feed.map(l => `$${n} ${l}`)];
   p.small = (n) => [...s0(n), ...m.feed.map(l => `$${n} ${l}`)];
 });
+// 晨風青露：更懶的台詞與表情
+{ const b = PERSONA.breeze; Object.assign(b, BREEZE_LAZY); b.faces = { ...b.faces, ...BREEZE_LAZY.faces }; b.greet = { ...b.greet, ...BREEZE_LAZY.greet }; POCKET_FULL.breeze = POCKET_FULL_BREEZE; }
 const personaOf = (id) => PERSONA[id] || PERSONA.amber;
 // 表情要對得上台詞：極光只有真的在凶人時才鼓臉，其餘都是冷冷的半睜眼
 const faceFor = (id, text, def) => {
@@ -644,6 +646,14 @@ const faceFor = (id, text, def) => {
     if (angry) return 'hmph';
     if (bashful) return 'shy';
     return (def === 'hmph' || def === 'shy') ? 'cold' : def;
+  }
+  if (id === 'breeze') {
+    if (/哈欠|呼啊|打了/.test(text)) return 'yawn';
+    if (/睡|睏|晚安|五分鐘|十分鐘|閉上|夢|呼……/.test(text)) return 'doze';
+    if (/撐住|電量|累|躺|不想動|懶|沒力/.test(text)) return 'halflid';
+    if (/發呆|什麼都不做|思考|飄不動/.test(text)) return 'daze';
+    if (/好吃|暖|舒服|茶|鼓掌|謝謝|溫柔|慢慢嚼/.test(text)) return 'cozy';
+    return def;
   }
   if (id === 'geo') {
     if (angry && def !== null) return 'puff';

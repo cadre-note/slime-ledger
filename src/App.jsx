@@ -1748,7 +1748,15 @@ export default function App() {
   };
 
   // 新人說明（只有第一次打開會出現）
-  const [showWelcome, setShowWelcome] = useState(() => { try { return localStorage.getItem('glimmer_welcomed') !== '1'; } catch { return false; } });
+  const [showWelcome, setShowWelcome] = useState(() => { try {
+    if (localStorage.getItem('glimmer_welcomed') === '1') return false;
+    // 已經有使用紀錄的人（舊用戶、已加到桌面後重開）不再跳出
+    const tx = localStorage.getItem('glimmer_transactions_v4');
+    if (tx && tx !== '[]') { localStorage.setItem('glimmer_welcomed', '1'); return false; }
+    // 一打開就先記為看過，之後即使中途關掉也不會再出現
+    localStorage.setItem('glimmer_welcomed', '1');
+    return true;
+  } catch { return false; } });
   const closeWelcome = () => { try { localStorage.setItem('glimmer_welcomed', '1'); } catch {} setShowWelcome(false); setTimeout(() => openingLine(), 300); };
 
   // 打開時的問候（節日優先）

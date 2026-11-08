@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { NewFace } from './Face.jsx';
 import { BODY_IMG } from './bodies.js';
+import { JOKES, EX } from './extras.js';
 import { PhotoIcon, iconKeyOf, CUSTOM_ICON_CHOICES } from './PhotoIcons.jsx';
 import { 
   Carrot, CakeSlice, Sparkles, BookOpen, PieChart, Compass, Plus, Trash2, Edit3, 
@@ -632,6 +633,18 @@ Object.keys(PERSONA_MORE).forEach(k => {
   p.feed = (n, c) => [...f0(n, c), ...m.feed.map(l => `$${n} ${l}`)];
   p.small = (n) => [...s0(n), ...m.feed.map(l => `$${n} ${l}`)];
 });
+// 每日笑話：一輪用完才重來，且不會連續兩天同一則
+const JOKE_FACE = { amber: 'laugh', breeze: 'cozy', cryo: 'smug', pyro: 'shy', geo: 'smileA' };
+const nextJoke = (id) => {
+  const list = JOKES[id]; if (!list || !list.length) return null;
+  const key = 'glimmer_jokebag_' + id;
+  let bag = []; let last = -1;
+  try { const o = JSON.parse(localStorage.getItem(key) || '{}'); bag = Array.isArray(o.bag) ? o.bag.filter(i => i >= 0 && i < list.length) : []; last = typeof o.last === 'number' ? o.last : -1; } catch {}
+  if (!bag.length) { bag = list.map((_, i) => i).filter(i => i !== last); }
+  const k = Math.floor(Math.random() * bag.length); const idx = bag[k]; bag.splice(k, 1);
+  try { localStorage.setItem(key, JSON.stringify({ bag, last: idx })); } catch {}
+  return list[idx];
+};
 const personaOf = (id) => PERSONA[id] || PERSONA.amber;
 // 表情要對得上台詞：極光只有真的在凶人時才鼓臉，其餘都是冷冷的半睜眼
 const faceFor = (id, text, def) => {
@@ -1746,9 +1759,22 @@ export default function App() {
     setTxNote('');
   };
 
-  // 打開時的問候（節日優先）
-  useEffect(() => {
-    const t = setTimeout(() => {
+  // 新人說明（只有第一次打開會出現）
+  const [showWelcome, setShowWelcome] = useState(() => { try { return localStorage.getItem('glimmer_welcomed') !== '1'; } catch { return false; } });
+  const closeWelcome = () => { try { localStorage.setItem('glimmer_welcomed', '1'); } catch {} setShowWelcome(false); setTimeout(() => openingLine(), 300); };
+
+  // 打開時的問候（節日優先）；每天第一次打開，最後會由目前的角色講一句笑話
+  const openingLine = () => {
+      const sid0 = SPIRITS[spiritIdxRef.current]?.id;
+      const today1 = toDateStr(new Date());
+      let jokeDone = false;
+      try { jokeDone = localStorage.getItem('glimmer_joke_day') === today1; } catch {}
+      const tellJoke = (delay) => {
+        if (jokeDone) return;
+        const jk = nextJoke(sid0); if (!jk) return;
+        try { localStorage.setItem('glimmer_joke_day', today1); } catch {}
+        setTimeout(() => showTemporaryWhisper(jk, null, 4600, JOKE_FACE[sid0] || 'happy', false, true), delay);
+      };
       const fest = FESTIVAL_LINES[toDateStr(new Date()).slice(5)];
       const persona = personaOf(SPIRITS[spiritIdxRef.current]?.id);
       const today0 = toDateStr(new Date()); const h = new Date().getHours();
@@ -1759,14 +1785,18 @@ export default function App() {
         try { localStorage.setItem('glimmer_woke_' + today0, '1'); } catch {}
         setWakingUp(true);
         setTimeout(() => { setWakingUp(false); setSquishKey(k => k + 1); setCelebrating(true); setTimeout(() => setCelebrating(false), 900); showTemporaryWhisper(pickOne(persona.morning), null, 3200); }, 1600);
+        tellJoke(5000);
         return;
       }
-      if (milestoneIdx === 5) { showTemporaryWhisper(pickOne(persona.hungry), null, 3200); return; }
+      if (milestoneIdx === 5) { showTemporaryWhisper(pickOne(persona.hungry), null, 3200); tellJoke(3500); return; }
       { const d0 = new Date(); const dim = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate(); const dd = d0.getDate();
-        if (!fest && dd === 1 && persona.monthStart) { showTemporaryWhisper(pickOne(persona.monthStart), null, 3000); return; }
-        if (!fest && dd >= dim - 1 && persona.monthEnd && Math.random() < 0.6) { showTemporaryWhisper(pickOne(persona.monthEnd), null, 3000); return; } }
-      showTemporaryWhisper(fest || timeGreeting(), null, 3000);
-    }, 700);
+        if (!fest && dd === 1 && persona.monthStart) { showTemporaryWhisper(pickOne(persona.monthStart), null, 3000); tellJoke(3300); return; }
+        if (!fest && dd >= dim - 1 && persona.monthEnd && Math.random() < 0.6) { showTemporaryWhisper(pickOne(persona.monthEnd), null, 3000); tellJoke(3300); return; } }
+      if (!fest && !jokeDone) { tellJoke(0); return; }
+      showTemporaryWhisper(fest || timeGreeting(), null, 3000); tellJoke(3300);
+  };
+  useEffect(() => {
+    const t = setTimeout(() => { if (!showWelcome) openingLine(); }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1877,7 +1907,7 @@ export default function App() {
     setShowMoodAsk(false);
     setSquishKey(prev => prev + 1);
     const opt = MOOD_OPTIONS.find(o => o.v === v);
-    showTemporaryWhisper(opt.line);
+    showTemporaryWhisper(EX[currentSpirit.id]?.mood?.[v - 1] || opt.line);
     if (v >= 4) triggerCelebration();
   };
   const clearDemoData = () => {
@@ -2089,7 +2119,9 @@ export default function App() {
     if (categoryObj.type === 'income' && txLedger !== 'personal') setTxLedger('personal');
     const isPersonal = txLedger === 'personal' || categoryObj.type === 'income';
     if (!isPersonal) {
-      greedyReaction = txLedger === 'family' ? `$${num} 記進家庭小屋囉～` : txLedger === 'travel' ? `${fmtCur(num, txCur)}，旅途中的紀念，吃掉囉～` : `$${num} 記在公司帳了，別忘了報銷喔。`;
+      { const ex = EX[currentSpirit.id]; greedyReaction = txLedger === 'family' ? pickOne(ex.family(num)) : txLedger === 'travel' ? pickOne(ex.travel(fmtCur(num, txCur))) : pickOne(ex.company(num)); }
+    } else if (categoryObj.type === 'income') {
+      greedyReaction = pickOne(EX[currentSpirit.id].income(num));
     } else if (wasHungry) {
       greedyReaction = pickOne(persona.hungry);
     } else if (txDate !== todayDate) {
@@ -2762,7 +2794,7 @@ export default function App() {
                   whisperKeyProp={whisperKey}
                   expr={exprOverride}
                   exprStill={exprStill}
-                  onCharge={(t) => { setTimeout(() => showTemporaryWhisper(t > 0.7 ? '咻——！飛好高！' : t > 0.35 ? '嘿咻！' : '噗通～', null, 1600, pickOne(currentSpirit.id ? personaOf(currentSpirit.id).faces.tap : ['happy'])), 250); }}
+                  onCharge={(t) => { setTimeout(() => showTemporaryWhisper(EX[currentSpirit.id].charge[t > 0.7 ? 0 : t > 0.35 ? 1 : 2], null, 1600, pickOne(currentSpirit.id ? personaOf(currentSpirit.id).faces.tap : ['happy'])), 250); }}
                   whisperRare={whisperRare}
                   glowing={glowing}
                   pokeFx={pokeFx}
@@ -2792,7 +2824,7 @@ export default function App() {
               </div>
 
               {/* 晚上的心情詢問 */}
-              {showMoodAsk && (
+              {showMoodAsk && !showWelcome && (
                 <div className={`mx-1 mb-1 px-3 py-2.5 rounded-2xl border backdrop-blur-md animate-whisper-float shrink-0 ${themeConfig.surface}`}>
                   <div className="flex items-center justify-between">
                     <span className={`text-xs font-bold ${themeConfig.textPrimary}`}>{currentSpirit.name}想知道：今天過得怎樣？</span>
@@ -3731,6 +3763,44 @@ export default function App() {
         {/* ==========================================
             彈窗 3：新增自訂分類項目 (清楚好操作的三步驟)
         ========================================== */}
+        {showWelcome && (() => {
+          const dk = theme === 'dark';
+          const tabs = [
+            ['餵食記帳', '首頁。點轉盤上的項目、輸入金額，就是餵史萊姆＝記一筆。右上角的條碼小圓鈕可放手機條碼載具，轉盤最後的「修改」能改名、換圖示、隱藏與排序項目。'],
+            ['生活手帳', '每一筆紀錄都在這裡，可修改、刪除，也能切換個人、家庭、公司代墊、旅遊帳本。'],
+            ['肚子消化圖', '看花費去哪了；在這裡設定個人每月支出上限與小口袋。'],
+          ];
+          return (
+            <div className="absolute inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className={`w-full max-h-full overflow-y-auto rounded-[32px] p-5 border shadow-2xl animate-whisper-float ${dk ? 'bg-[#161F30] border-slate-700 text-slate-100' : 'bg-[#FDFBF7] border-white text-stone-800'}`}>
+                <h3 className="text-lg font-bold text-center">歡迎來到史萊姆記帳</h3>
+                <p className={`text-[12px] text-center mt-1 ${dk ? 'text-slate-400' : 'text-stone-500'}`}>一起把每天的花費，餵給可愛的史萊姆。資料只存在你的手機裡。</p>
+                <div className="mt-3 text-[12px] font-bold opacity-70">五位夥伴（左右滑動史萊姆就能換）</div>
+                <div className="mt-1.5 space-y-1.5">
+                  {SPIRITS.map(sp => (
+                    <div key={sp.id} className={`flex items-start gap-2 rounded-2xl px-3 py-2 ${dk ? 'bg-slate-800/60' : 'bg-white/80'}`}>
+                      <span className="text-lg leading-6">{sp.emoji}</span>
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-bold" style={{ color: dk ? sp.darkAccentText : sp.accentText }}>{sp.name}<span className="ml-1.5 text-[11px] font-semibold opacity-75">{sp.elementTag}</span></div>
+                        <div className={`text-[11.5px] leading-snug ${dk ? 'text-slate-400' : 'text-stone-500'}`}>{sp.tagline}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-[12px] font-bold opacity-70">底部三個分頁</div>
+                <div className="mt-1.5 space-y-1.5">
+                  {tabs.map(([t, d]) => (
+                    <div key={t} className={`rounded-2xl px-3 py-2 ${dk ? 'bg-slate-800/60' : 'bg-white/80'}`}>
+                      <div className="text-[13px] font-bold">{t}</div>
+                      <div className={`text-[11.5px] leading-snug ${dk ? 'text-slate-400' : 'text-stone-500'}`}>{d}</div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={closeWelcome} className="mt-4 w-full py-3 rounded-2xl text-white text-sm font-bold" style={{ background: currentSpirit.primary }}>開始記帳</button>
+              </div>
+            </div>
+          );
+        })()}
         {showCarrier && (() => {
           const { rects, width } = code39Rects(carrier || '/AAAAAAA');
           const dk = theme === 'dark';

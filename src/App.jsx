@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { NewFace } from './Face.jsx';
 import { BODY_IMG } from './bodies.js';
-import { JOKES, EX } from './extras.js';
+import { EX } from './extras.js';
 import { PhotoIcon, iconKeyOf, CUSTOM_ICON_CHOICES } from './PhotoIcons.jsx';
 import { 
   Carrot, CakeSlice, Sparkles, BookOpen, PieChart, Compass, Plus, Trash2, Edit3, 
@@ -633,18 +633,6 @@ Object.keys(PERSONA_MORE).forEach(k => {
   p.feed = (n, c) => [...f0(n, c), ...m.feed.map(l => `$${n} ${l}`)];
   p.small = (n) => [...s0(n), ...m.feed.map(l => `$${n} ${l}`)];
 });
-// 每日笑話：一輪用完才重來，且不會連續兩天同一則
-const JOKE_FACE = { amber: 'laugh', breeze: 'cozy', cryo: 'smug', pyro: 'shy', geo: 'smileA' };
-const nextJoke = (id) => {
-  const list = JOKES[id]; if (!list || !list.length) return null;
-  const key = 'glimmer_jokebag_' + id;
-  let bag = []; let last = -1;
-  try { const o = JSON.parse(localStorage.getItem(key) || '{}'); bag = Array.isArray(o.bag) ? o.bag.filter(i => i >= 0 && i < list.length) : []; last = typeof o.last === 'number' ? o.last : -1; } catch {}
-  if (!bag.length) { bag = list.map((_, i) => i).filter(i => i !== last); }
-  const k = Math.floor(Math.random() * bag.length); const idx = bag[k]; bag.splice(k, 1);
-  try { localStorage.setItem(key, JSON.stringify({ bag, last: idx })); } catch {}
-  return list[idx];
-};
 const personaOf = (id) => PERSONA[id] || PERSONA.amber;
 // 表情要對得上台詞：極光只有真的在凶人時才鼓臉，其餘都是冷冷的半睜眼
 const faceFor = (id, text, def) => {
@@ -1763,18 +1751,8 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(() => { try { return localStorage.getItem('glimmer_welcomed') !== '1'; } catch { return false; } });
   const closeWelcome = () => { try { localStorage.setItem('glimmer_welcomed', '1'); } catch {} setShowWelcome(false); setTimeout(() => openingLine(), 300); };
 
-  // 打開時的問候（節日優先）；每天第一次打開，最後會由目前的角色講一句笑話
+  // 打開時的問候（節日優先）
   const openingLine = () => {
-      const sid0 = SPIRITS[spiritIdxRef.current]?.id;
-      const today1 = toDateStr(new Date());
-      let jokeDone = false;
-      try { jokeDone = localStorage.getItem('glimmer_joke_day') === today1; } catch {}
-      const tellJoke = (delay) => {
-        if (jokeDone) return;
-        const jk = nextJoke(sid0); if (!jk) return;
-        try { localStorage.setItem('glimmer_joke_day', today1); } catch {}
-        setTimeout(() => showTemporaryWhisper(jk, null, 4600, JOKE_FACE[sid0] || 'happy', false, true), delay);
-      };
       const fest = FESTIVAL_LINES[toDateStr(new Date()).slice(5)];
       const persona = personaOf(SPIRITS[spiritIdxRef.current]?.id);
       const today0 = toDateStr(new Date()); const h = new Date().getHours();
@@ -1785,15 +1763,13 @@ export default function App() {
         try { localStorage.setItem('glimmer_woke_' + today0, '1'); } catch {}
         setWakingUp(true);
         setTimeout(() => { setWakingUp(false); setSquishKey(k => k + 1); setCelebrating(true); setTimeout(() => setCelebrating(false), 900); showTemporaryWhisper(pickOne(persona.morning), null, 3200); }, 1600);
-        tellJoke(5000);
         return;
       }
-      if (milestoneIdx === 5) { showTemporaryWhisper(pickOne(persona.hungry), null, 3200); tellJoke(3500); return; }
+      if (milestoneIdx === 5) { showTemporaryWhisper(pickOne(persona.hungry), null, 3200); return; }
       { const d0 = new Date(); const dim = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate(); const dd = d0.getDate();
-        if (!fest && dd === 1 && persona.monthStart) { showTemporaryWhisper(pickOne(persona.monthStart), null, 3000); tellJoke(3300); return; }
-        if (!fest && dd >= dim - 1 && persona.monthEnd && Math.random() < 0.6) { showTemporaryWhisper(pickOne(persona.monthEnd), null, 3000); tellJoke(3300); return; } }
-      if (!fest && !jokeDone) { tellJoke(0); return; }
-      showTemporaryWhisper(fest || timeGreeting(), null, 3000); tellJoke(3300);
+        if (!fest && dd === 1 && persona.monthStart) { showTemporaryWhisper(pickOne(persona.monthStart), null, 3000); return; }
+        if (!fest && dd >= dim - 1 && persona.monthEnd && Math.random() < 0.6) { showTemporaryWhisper(pickOne(persona.monthEnd), null, 3000); return; } }
+      showTemporaryWhisper(fest || timeGreeting(), null, 3000);
   };
   useEffect(() => {
     const t = setTimeout(() => { if (!showWelcome) openingLine(); }, 700);

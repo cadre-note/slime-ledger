@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { NewFace } from './Face.jsx';
 import { BODY_IMG } from './bodies.js';
-import { EX, BREEZE_LAZY, POCKET_FULL_BREEZE } from './extras.js';
+import { EX, BREEZE_LAZY, POCKET_FULL_BREEZE, CRYO_COLD, POCKET_FULL_CRYO, GEO_STEADY, POCKET_FULL_GEO } from './extras.js';
 import { PhotoIcon, iconKeyOf, CUSTOM_ICON_CHOICES } from './PhotoIcons.jsx';
 import { 
   Carrot, CakeSlice, Sparkles, BookOpen, PieChart, Compass, Plus, Trash2, Edit3, 
@@ -635,6 +635,9 @@ Object.keys(PERSONA_MORE).forEach(k => {
 });
 // 晨風青露：更懶的台詞與表情
 { const b = PERSONA.breeze; Object.assign(b, BREEZE_LAZY); b.faces = { ...b.faces, ...BREEZE_LAZY.faces }; b.greet = { ...b.greet, ...BREEZE_LAZY.greet }; POCKET_FULL.breeze = POCKET_FULL_BREEZE; }
+// 極光冰晶（冷、簡短）與暮色可可（沉穩、支持）
+{ const c = PERSONA.cryo; Object.assign(c, CRYO_COLD); POCKET_FULL.cryo = POCKET_FULL_CRYO;
+  const g = PERSONA.geo; Object.assign(g, GEO_STEADY); g.faces = { ...g.faces, ...GEO_STEADY.faces }; POCKET_FULL.geo = POCKET_FULL_GEO; }
 const personaOf = (id) => PERSONA[id] || PERSONA.amber;
 // 表情要對得上台詞：極光只有真的在凶人時才鼓臉，其餘都是冷冷的半睜眼
 const faceFor = (id, text, def) => {
@@ -656,6 +659,15 @@ const faceFor = (id, text, def) => {
     return def;
   }
   if (id === 'geo') {
+    if (/做得|很棒|穩|驕傲|看在眼裡|不錯|了不起|本事|值得/.test(text)) return /驕傲|了不起/.test(text) ? 'proud' : 'praise';
+    if (/辛苦|休息|睡|累|歇|放鬆|不用逞強|深呼吸/.test(text)) return 'softclose';
+    if (/謝|暖|安心|放心|在這裡|陪/.test(text)) return 'relief';
+    if (/盯|看著|顧著|守|提醒|整理|核對|確認/.test(text)) return 'guard';
+    if (/記好|記下|收到|收好|完成/.test(text)) return 'nodA';
+    if (/想|說|問|聽/.test(text)) return 'smileC';
+    return def;
+  }
+  if (id === 'geo-old') {
     if (angry && def !== null) return 'puff';
   }
   return def;
